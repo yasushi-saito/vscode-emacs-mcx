@@ -1,63 +1,162 @@
-import { Position, Selection, TextEditor, EndOfLine } from "vscode";
+import { Position, Range, Selection, TextEditor, TextEditorEdit, EndOfLine } from "vscode";
 import { EmacsCommand } from ".";
 import { MessageManager } from "../message";
+import * as vscode from "vscode";
+
+async function transposeInternal(
+  textEditor: TextEditor,
+  mover: (prefixArgument: number) => Promise<void>,
+  prefixArgument: number | undefined,
+): Promise<void> {
+  // Invoke the mover and return the [start, end] range of a
+  // region to transpose, for each selection.
+  const aux = async (prefixArgument: number): Promise<Range[]> => {
+    await mover(prefixArgument);
+    const endPositions = textEditor.selections.map((s) => s.active);
+    await mover(-prefixArgument);
+    const startPositions = textEditor.selections.map((s) => s.active);
+
+    const ranges: Range[] = [];
+    for (let i = 0; i < Math.min(startPositions.length, endPositions.length); i++) {
+      const start = startPositions[i] as Position;
+      const end = endPositions[i] as Position;
+      ranges.push(start.isAfter(end) ? new Range(end, start) : new Range(start, end));
+    }
+    return ranges;
+  };
+
+  const subr1 = async (pos1: Range[], pos2: Range[]): Promise<void> => {
+    // Transpose each char/word/line in pos1 and pos2.
+    await textEditor.edit((edit: TextEditorEdit) => {
+      for (let i = 0; i < Math.min(pos1.length, pos2.length); i++) {
+        let p1 = pos1[i] as Range;
+        let p2 = pos2[i] as Range;
+        if (p1.start.isAfter(p2.start)) {
+          [p1, p2] = [p2, p1];
+        }
+        if (!p1.end.isAfter(p2.start)) {
+          const text1 = textEditor.document.getText(p1);
+          const text2 = textEditor.document.getText(p2);
+          edit.delete(new Selection(p1.start, p1.end));
+          edit.delete(new Selection(p2.start, p2.end));
+          edit.insert(p1.start, text2);
+          edit.insert(p2.start, text1);
+        }
+      }
+    });
+  };
+
+  if (prefixArgument === undefined || prefixArgument >= 0) {
+    // Find the char/word/line(s) before the point.
+    const pos1 = await aux(-1);
+    // Find the char/word/line(s) after the point.
+    const pos2 = await aux(prefixArgument ?? 1);
+    console.log(
+      `transposeInternal: (8) : pa=${prefixArgument} pos1=${JSON.stringify(pos1)} pos2=${JSON.stringify(pos2)} selections=${JSON.stringify(textEditor.selections)}`,
+    );
+    await subr1(pos1, pos2);
+    // Move the active position to the start of the range(s).
+    /*if (undefined) {
+      console.log(`Transpose end: pos2=${JSON.stringify(pos2)} selections=${JSON.stringify(textEditor.selections)}`);
+      const newSelections: Selection[] = [];
+      for (let i = 0; i < textEditor.selections.length; i++) {
+        const selection = textEditor.selections[i]!;
+        const r2 = pos2[i];
+        if (r2 === undefined) {
+          // shouldn't happen.
+          newSelections.push(selection);
+          continue;
+        }
+        newSelections.push(new Selection(r2.start, r2.start));
+      }
+      textEditor.selection = newSelections[0]!;
+      textEditor.selections = newSelections;
+    }*/
+  } else {
+    console.log(`transposeInternal: negative ${prefixArgument}: selections=${JSON.stringify(textEditor.selections)}`);
+    const pos1 = await aux(-1);
+    console.log(
+      `transposeInternal: (2) : pos=${JSON.stringify(pos1)} selections=${JSON.stringify(textEditor.selections)}`,
+    );
+
+    // Move the active position to the start of the range(s).
+    {
+      const newSelections: Selection[] = [];
+      for (let i = 0; i < textEditor.selections.length; i++) {
+        const selection = textEditor.selections[i]!;
+        const range = pos1[i];
+        newSelections.push(new Selection(range?.start ?? selection.anchor, range?.start ?? selection.active));
+      }
+      textEditor.selections = newSelections;
+    }
+    console.log(`transposeInternal: (3) : selections=${JSON.stringify(textEditor.selections)}`);
+    const pos2 = await aux(prefixArgument);
+    console.log(
+      `transposeInternal: (4) : pos2=${JSON.stringify(pos2)} selections=${JSON.stringify(textEditor.selections)}`,
+    );
+    await subr1(pos1, pos2);
+    // Move the active position to the start of the range(s).
+    {
+      const newSelections: Selection[] = [];
+      for (let i = 0; i < textEditor.selections.length; i++) {
+        const selection = textEditor.selections[i]!;
+        const r1 = pos1[i];
+        const r2 = pos2[i];
+        if (r2 === undefined) {
+          // shouldn't happen.
+          newSelections.push(selection);
+          continue;
+        }
+        const delta = r1 ? textEditor.document.offsetAt(r1.end) - textEditor.document.offsetAt(r1.start) : 0;
+        const offset = r2 ? textEditor.document.offsetAt(r2.start) : 0;
+        const newPosition = textEditor.document.positionAt(offset + delta);
+        newSelections.push(new Selection(newPosition, newPosition));
+      }
+      textEditor.selections = newSelections;
+    }
+  }
+}
 
 export class TransposeChars extends EmacsCommand {
   public readonly id = "transposeChars";
 
   public async run(textEditor: TextEditor, isInMarkMode: boolean, prefixArgument: number | undefined): Promise<void> {
-    const transposeOffset = prefixArgument == null ? 1 : prefixArgument;
+    const mover = async (prefixArgument: number) => {
+      //console.log(`start prefix ${prefixArgument} ${JSON.stringify(textEditor.selection.active)}`);
+      if (prefixArgument > 0) {
+        await this.emacsController.runCommand("forwardChar", { prefixArgument: prefixArgument });
+      } else {
+        await this.emacsController.runCommand("backwardChar", { prefixArgument: -prefixArgument });
+      }
+      //console.log(`end prefix ${prefixArgument} ${JSON.stringify(textEditor.selection.active)}`);
+    };
 
-    if (transposeOffset === 0) {
+    const active = textEditor.selection.active;
+    const activeLine = textEditor.document.lineAt(active);
+    if (textEditor.document.offsetAt(active) == 0) {
+      // No-op at the beginning of the buffer.
       return;
     }
-
-    const doc = textEditor.document;
-
-    const uniqueActives = [...new Set(textEditor.selections.map((s) => s.active))].sort((a, b) => {
-      if (a.line === b.line) {
-        return a.character - b.character;
-      }
-      return a.line - b.line;
-    });
-
-    const newActiveOffsets: number[] = [];
-    for (const active of uniqueActives) {
-      const docLastOffset = doc.offsetAt(doc.lineAt(doc.lineCount - 1).range.end);
-
-      const activeLine = doc.lineAt(active.line);
-      const activeOffset = doc.offsetAt(active);
-      const fromOffset = Math.max((active.isEqual(activeLine.range.end) ? activeOffset - 1 : activeOffset) - 1, -1);
-      const toOffset = fromOffset + transposeOffset;
-
-      if (toOffset === fromOffset) {
-        return;
-      }
-
-      if (fromOffset < 0 || toOffset < 0) {
-        await this.emacsController.runCommand("beginningOfBuffer");
-        return;
-      }
-
-      if (fromOffset > docLastOffset || toOffset > docLastOffset) {
-        await this.emacsController.runCommand("endOfBuffer");
-        return;
-      }
-
-      newActiveOffsets.push(toOffset + 1);
-      const fromChar = doc.getText(new Selection(doc.positionAt(fromOffset), doc.positionAt(fromOffset + 1)));
-      await textEditor.edit((editBuilder) => {
-        const toInsertPos = doc.positionAt(fromOffset < toOffset ? toOffset + 1 : toOffset);
-        editBuilder.insert(toInsertPos, fromChar);
-        editBuilder.delete(new Selection(doc.positionAt(fromOffset), doc.positionAt(fromOffset + 1)));
-      });
+    if (active.isAfterOrEqual(activeLine.range.end)) {
+      this.emacsController.runCommand("backwardChar");
     }
 
-    this.emacsController.exitMarkMode();
-    textEditor.selections = newActiveOffsets.map((activeOffset) => {
-      const newActive = doc.positionAt(activeOffset);
-      return new Selection(newActive, newActive);
-    });
+    await transposeInternal(textEditor, mover, prefixArgument);
+  }
+}
+
+export class TransposeWords extends EmacsCommand {
+  public readonly id = "transposeWords";
+
+  public async run(textEditor: TextEditor, isInMarkMode: boolean, prefixArgument: number | undefined): Promise<void> {
+    const mover = async (prefixArgument: number) => {
+      if (prefixArgument > 0) {
+        await vscode.commands.executeCommand<void>("emacs-mcx.forwardWord", { prefixArgument: prefixArgument });
+      } else {
+        await vscode.commands.executeCommand<void>("emacs-mcx.backwardWord", { prefixArgument: -prefixArgument });
+      }
+    };
+    await transposeInternal(textEditor, mover, prefixArgument);
   }
 }
 

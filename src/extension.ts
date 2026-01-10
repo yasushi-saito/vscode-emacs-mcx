@@ -273,6 +273,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   bindEmulatorCommand("transposeLines");
 
+  bindEmulatorCommand("transposeWords");
+
   bindEmulatorCommand("recenterTopBottom");
 
   bindEmulatorCommand("tabToTabStop");

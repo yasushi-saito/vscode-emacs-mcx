@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { Range, Selection, TextEditor } from "vscode";
+import { Range, Position, Selection, TextDocument, TextEditor } from "vscode";
 import { EmacsCommand } from ".";
 import { makeParallel } from "./helpers/parallel";
 import { makeSelectionsEmpty } from "./helpers/selection";
@@ -29,6 +29,33 @@ export class DeleteForwardChar extends EmacsCommand {
   }
 }
 
+// Finds consecutive spaces (" " or "\t") around the given position.
+function findSpacesInCurrentLine(document: TextDocument, position: Position, onlyBefore: boolean): Range {
+  const line = position.line;
+
+  let from = position.character;
+  while (from > 0) {
+    const char = document.getText(new Range(line, from - 1, line, from));
+    if (char !== " " && char !== "\t") {
+      break;
+    }
+    from -= 1;
+  }
+
+  let to = position.character;
+  if (!onlyBefore) {
+    const lineEnd = document.lineAt(line).range.end.character;
+    while (to < lineEnd) {
+      const char = document.getText(new Range(line, to, line, to + 1));
+      if (char !== " " && char !== "\t") {
+        break;
+      }
+      to += 1;
+    }
+  }
+  return new Range(line, from, line, to);
+}
+
 export class DeleteHorizontalSpace extends EmacsCommand {
   public readonly id = "deleteHorizontalSpace";
 
@@ -37,35 +64,39 @@ export class DeleteHorizontalSpace extends EmacsCommand {
     return textEditor
       .edit((editBuilder) => {
         textEditor.selections.forEach((selection) => {
-          const line = selection.active.line;
-
-          let from = selection.active.character;
-          while (from > 0) {
-            const char = textEditor.document.getText(new Range(line, from - 1, line, from));
-            if (char !== " " && char !== "\t") {
-              break;
-            }
-            from -= 1;
-          }
-
-          let to = selection.active.character;
-          if (!onlyBefore) {
-            const lineEnd = textEditor.document.lineAt(line).range.end.character;
-            while (to < lineEnd) {
-              const char = textEditor.document.getText(new Range(line, to, line, to + 1));
-              if (char !== " " && char !== "\t") {
-                break;
-              }
-              to += 1;
-            }
-          }
-
-          editBuilder.delete(new Range(line, from, line, to));
+          editBuilder.delete(findSpacesInCurrentLine(textEditor.document, selection.active, onlyBefore));
         });
       })
       .then((success) => {
         if (!success) {
           logger.warn("deleteHorizontalSpace failed");
+        }
+      })
+      .then(() => {
+        makeSelectionsEmpty(textEditor);
+      });
+  }
+}
+
+export class JustOneSpace extends EmacsCommand {
+  public readonly id = "justOneSpace";
+
+  public run(textEditor: TextEditor, isInMarkMode: boolean, prefixArgument: number | undefined): Thenable<void> {
+    const onlyBefore = prefixArgument === undefined ? false : prefixArgument > 0;
+    return textEditor
+      .edit((editBuilder) => {
+        textEditor.selections.forEach((selection) => {
+          const spaces = findSpacesInCurrentLine(textEditor.document, selection.active, onlyBefore);
+          if (spaces.start.isBefore(spaces.end)) {
+            editBuilder.delete(
+              new Range(spaces.start.line, spaces.start.character, spaces.end.line, spaces.end.character - 1),
+            );
+          }
+        });
+      })
+      .then((success) => {
+        if (!success) {
+          logger.warn("justOneSpace failed");
         }
       })
       .then(() => {

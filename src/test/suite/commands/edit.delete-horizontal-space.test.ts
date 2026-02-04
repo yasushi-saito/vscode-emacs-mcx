@@ -48,6 +48,29 @@ import {
 
     (
       [
+        [0, false],
+        [1, true],
+        [2, true],
+        [3, true],
+        [4, true],
+        [5, false],
+      ] as const
+    ).forEach(([charPos, shouldHaveEffect]) => {
+      test(`just-one-space before and after the cursor at ${charPos} in each line`, async () => {
+        setEmptyCursors(activeTextEditor, [0, charPos], [1, charPos]);
+        await emulator.runCommand("justOneSpace");
+        if (shouldHaveEffect) {
+          assertTextEqual(activeTextEditor, `a${space}b\na${space}b`);
+          assertCursorsEqual(activeTextEditor, [0, 1], [1, 1]);
+        } else {
+          assertTextEqual(activeTextEditor, initialText);
+          assertCursorsEqual(activeTextEditor, [0, charPos], [1, charPos]);
+        }
+      });
+    });
+
+    (
+      [
         [0, false, `a${space}${space}${space}b\na${space}${space}${space}b`],
         [1, true, `a${space}${space}${space}b\na${space}${space}${space}b`],
         [2, true, `a${space}${space}b\na${space}${space}b`],

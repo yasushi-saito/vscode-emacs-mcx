@@ -273,15 +273,20 @@ function findNextWordEndInternal(
 }
 
 // Based on Emacs's subword-forward-internal ( https://github.com/emacs-mirror/emacs/blob/f2250ba24400c71040fbfb6e9c2f90b1f87dbb59/lisp/progmodes/subword.el#L282 )
-function findNextSubwordEndInternal(doc: TextDocument, position: Position): Position | null {
+function findNextSubwordEndInternal(
+  doc: TextDocument,
+  position: Position,
+  allowCrossLineWordNavigation: boolean,
+): Position | null {
   const regexp = /[\W_]*(([A-Z]*([\W_]?))[a-z\d]*)/dg;
   let lineNumber = position.line;
   let character = position.character;
   let line = doc.lineAt(lineNumber).text.substring(character);
-  // If there is no non-space letters in the line, skip to the next nonempty line.
-  if (line.trim().length === 0) {
+  // If the remainder of the line has no word characters, skip to the next non-empty line.
+  if (allowCrossLineWordNavigation && line.trim().length === 0) {
     while (true) {
-      [lineNumber, character] = [lineNumber + 1, 0];
+      lineNumber += 1;
+      character = 0;
       if (lineNumber >= doc.lineCount) {
         return null;
       }
@@ -314,7 +319,7 @@ export function findNextWordEnd(
   subwordMode: boolean = false,
 ): Position {
   if (subwordMode) {
-    const nextPosition = findNextSubwordEndInternal(doc, position);
+    const nextPosition = findNextSubwordEndInternal(doc, position, allowCrossLineWordNavigation);
     if (nextPosition) {
       return nextPosition;
     }
@@ -398,22 +403,26 @@ function findPreviousWordStartInternal(
 }
 
 // Based on Emacs's subword-backward-internal ( https://github.com/emacs-mirror/emacs/blob/f2250ba24400c71040fbfb6e9c2f90b1f87dbb59/lisp/progmodes/subword.el#L302 )
-function findPreviousSubwordStartInternal(doc: TextDocument, position: Position): Position | null {
+function findPreviousSubwordStartInternal(
+  doc: TextDocument,
+  position: Position,
+  allowCrossLineWordNavigation: boolean,
+): Position | null {
   const regexp = /(([\W_]|[a-z\d])([A-Z]+[\W_]*)|[\W_][0-9a-zA-Z]+)/dg;
 
   let lineNumber = position.line;
   let character = position.character;
-  let lineContent = doc.lineAt(position.line).text.substring(0, character);
-  if (character == 0) {
+  let lineContent = doc.lineAt(lineNumber).text.substring(0, character);
+  if (allowCrossLineWordNavigation && character === 0) {
     while (true) {
       if (lineNumber <= 0) {
         return null;
       }
-      lineNumber = lineNumber - 1;
-      character = 0;
+      lineNumber -= 1;
       const l = doc.lineAt(lineNumber);
       if (!l.isEmptyOrWhitespace) {
         lineContent = l.text;
+        character = l.text.length;
         break;
       }
     }
@@ -421,8 +430,7 @@ function findPreviousSubwordStartInternal(doc: TextDocument, position: Position)
 
   // Find the last regexp match before the position.
   const matches = [...lineContent.matchAll(regexp)];
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [range0, range1, range2, range3] = matches[matches.length - 1]?.indices ?? [];
+  const [range0, , , range3] = matches[matches.length - 1]?.indices ?? [];
 
   // For all-caps sequences (e.g., "URL" in "getURLString"), stop after keeping
   // the last uppercase char with the following subword: "get|URL|String" not "get|UR|LString"
@@ -443,7 +451,7 @@ export function findPreviousWordStart(
   subwordMode: boolean = false,
 ): Position {
   if (subwordMode) {
-    const previousPosition = findPreviousSubwordStartInternal(doc, position);
+    const previousPosition = findPreviousSubwordStartInternal(doc, position, allowCrossLineWordNavigation);
     if (previousPosition) {
       return previousPosition;
     }

@@ -215,6 +215,66 @@ suite("findNextWordEnd edge cases", () => {
   });
 });
 
+suite("findNextWordEnd across blank lines", () => {
+  test("forward subword skips empty and whitespace-only lines", async () => {
+    const doc = await vscode.workspace.openTextDocument({
+      content: "foo\n\n   \nbar",
+      language: "text",
+    });
+    const classifier = new WordCharacterClassifier("");
+    assert.deepStrictEqual(listAllNextWordEndPositions(doc, classifier, true), [
+      new Position(0, 3),
+      new Position(3, 3),
+    ]);
+  });
+
+  test("forward subword stops at blank line when cross-line navigation is disabled", async () => {
+    const doc = await vscode.workspace.openTextDocument({
+      content: "foo\n\nbar",
+      language: "text",
+    });
+    const classifier = new WordCharacterClassifier("");
+    const atFooEnd = new Position(0, 3);
+    assert.deepStrictEqual(findNextWordEnd(doc, classifier, atFooEnd, false, true), atFooEnd);
+  });
+});
+
+suite("findPreviousWordStart across blank lines", () => {
+  test("backward subword skips empty and whitespace-only lines", async () => {
+    const doc = await vscode.workspace.openTextDocument({
+      content: "foo\n\n   \nbar",
+      language: "text",
+    });
+    const classifier = new WordCharacterClassifier("");
+    assert.deepStrictEqual(listAllPreviousWordStartPositions(doc, classifier, true), [
+      new Position(3, 0),
+      new Position(0, 0),
+    ]);
+  });
+
+  test("backward subword stops at blank line when cross-line navigation is disabled", async () => {
+    const doc = await vscode.workspace.openTextDocument({
+      content: "foo\n\nbar",
+      language: "text",
+    });
+    const classifier = new WordCharacterClassifier("");
+    const atBarStart = new Position(2, 0);
+    assert.deepStrictEqual(findPreviousWordStart(doc, classifier, atBarStart, false, true), atBarStart);
+  });
+
+  test("backward subword preserves all-caps split when wrapping to previous line", async () => {
+    // When wrapping from the start of line 1 back into "getURLString",
+    // we must treat the effective cursor as being at end-of-line so the
+    // all-caps split returns (0, 6) = start of "String", not (0, 3).
+    const doc = await vscode.workspace.openTextDocument({
+      content: "getURLString\nfoo",
+      language: "text",
+    });
+    const classifier = new WordCharacterClassifier("");
+    assert.deepStrictEqual(findPreviousWordStart(doc, classifier, new Position(1, 0), true, true), new Position(0, 6));
+  });
+});
+
 suite("findPreviousWordStart edge cases", () => {
   test("all uppercase word", async () => {
     // "getURLParser HTMLElement"

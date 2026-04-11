@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm view:*)",
       "Bash(npm run test)",
       "Bash(npm run cspell)",
       "Bash(npm run test-compile)",

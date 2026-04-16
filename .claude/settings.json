@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm view:*)",
+      "Bash(npm run test)",
+      "Bash(npm run cspell)",
+      "Bash(npm run test-compile)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run check:eslint)",
+      "Bash(npm run check:prettier)",
+      "Bash(npm run fix:eslint)",
+      "Bash(npm run fix:prettier)",
+      "Bash(npm run gen-keys)",
+      "Bash(npm run test-gen-keys)"
+    ]
+  }
+}

@@ -1,5 +1,41 @@
 # Change Log
 
+## 0.110.3
+
+### Patch Changes
+
+- [#2846](https://github.com/whitphx/vscode-emacs-mcx/pull/2846) [`67e0ab1`](https://github.com/whitphx/vscode-emacs-mcx/commit/67e0ab1cab42842cdabf44cb7db040f85bdde3cc) Thanks [@whitphx](https://github.com/whitphx)! - Upgrade TypeScript to v6.
+
+## 0.110.2
+
+### Patch Changes
+
+- [#2845](https://github.com/whitphx/vscode-emacs-mcx/pull/2845) [`7d8537d`](https://github.com/whitphx/vscode-emacs-mcx/commit/7d8537d1027dd52d0573a6b7b66f03b8e6971432) Thanks [@github-actions](https://github.com/apps/github-actions)! - Update keybindings from the latest remote definitions.
+
+- [#2819](https://github.com/whitphx/vscode-emacs-mcx/pull/2819) [`2e3d592`](https://github.com/whitphx/vscode-emacs-mcx/commit/2e3d5922a00babc5f485a4bfd62483d678ee9ebb) Thanks [@whitphx](https://github.com/whitphx)! - Use `document.version` instead of event-based counter to track undo steps for yank-pop, making the undo count more robust.
+
+- [#2844](https://github.com/whitphx/vscode-emacs-mcx/pull/2844) [`f3083c3`](https://github.com/whitphx/vscode-emacs-mcx/commit/f3083c3a87f2c7a19fd4b760d62f384e1fe5cadf) Thanks [@github-actions](https://github.com/apps/github-actions)! - Update keybindings from the latest remote definitions.
+
+## 0.110.1
+
+### Patch Changes
+
+- [#2836](https://github.com/whitphx/vscode-emacs-mcx/pull/2836) [`fb5dbce`](https://github.com/whitphx/vscode-emacs-mcx/commit/fb5dbce96bd8e499090f1c002e7e44e0f8c00ae3) Thanks [@github-actions](https://github.com/apps/github-actions)! - Update keybindings from the latest remote definitions.
+
+- [#2841](https://github.com/whitphx/vscode-emacs-mcx/pull/2841) [`49ca0d8`](https://github.com/whitphx/vscode-emacs-mcx/commit/49ca0d8d56828f8b6fac4561fd1dbe141a33e0e5) Thanks [@whitphx](https://github.com/whitphx)! - Import the vendored `paredit.js` via a relative path instead of a `file:` dependency, avoiding the installation of its unused devDependencies (mocha, chai, uglify-js, ace.improved, …) into `node_modules`.
+
+## 0.110.0
+
+### Minor Changes
+
+- [#2818](https://github.com/whitphx/vscode-emacs-mcx/pull/2818) [`f8eb771`](https://github.com/whitphx/vscode-emacs-mcx/commit/f8eb771d1819efad6a302827ab9335b56a6a2d71) Thanks [@whitphx](https://github.com/whitphx)! - Add `cycle-spacing` command (M-SPC) that cycles through three actions on successive calls: first reduces whitespace to one space (just-one-space), then deletes all whitespace (delete-horizontal-space), then restores the original whitespace.
+
+- [#2804](https://github.com/whitphx/vscode-emacs-mcx/pull/2804) [`d257f54`](https://github.com/whitphx/vscode-emacs-mcx/commit/d257f5425b7985cefecd415590dd52cb46d7e9b3) Thanks [@whitphx](https://github.com/whitphx)! - Add `just-one-space` command that deletes spaces and tabs around point, leaving one space by default; with a numeric prefix argument it leaves that many spaces, and with a negative prefix it also collapses surrounding newlines
+
+### Patch Changes
+
+- [#2823](https://github.com/whitphx/vscode-emacs-mcx/pull/2823) [`d84283e`](https://github.com/whitphx/vscode-emacs-mcx/commit/d84283e76194eb1c51f2fc3988a2c1295ee2214f) Thanks [@github-actions](https://github.com/apps/github-actions)! - Update keybindings from the latest remote definitions.
+
 ## 0.109.2
 
 ### Patch Changes
